@@ -2,29 +2,25 @@ name: Block DB Migrations
 
 on:
   push:
-    paths:
-      - 'db/migrate/*'
 
 jobs:
   block-db-migrations:
     runs-on: ubuntu-latest
-    permissions:
-        pull-requests: write
     steps:
-      - name: Post comment to PR
-        uses: actions/github-script@v4
+      - uses: actions/checkout@v3
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const comment = `Seems like your PR has some migrations in it. While we migrate the database over to AWS, schema changes are not allowed. Thank you for your patience`;
-            const prNumber = context.payload.pull_request.number;
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            await github.issues.createComment({
-              owner,
-              repo,
-              issue_number: prNumber,
-              body: comment
-            });
-      - name: Fail the build
-        run: exit 1
+          fetch-depth: 2    
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v37
+
+      - name: List all changed files
+        run: |
+          for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+            if grep 'db/migrate/' <<< "$file" > /dev/null; then
+              echo "Migrations found."
+              exit 1
+            else
+              echo "No migrations found."
+            fi          
+          done
